@@ -1,0 +1,199 @@
+---
+title: "squid diet metabarcoding"
+author: "Kimberly Ledger"
+date: "2023-07-18"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Taking a look at Charlotte's squid diet samples. 
+
+Inputs: This code starts with the sample and taxon table that Charlotte created by matching ASVs to taxons and condensing the table. 
+
+# Load libraries and data 
+
+load libraries 
+```{r}
+library(tidyverse)
+#library(dplyr)
+library(ggplot2)
+```
+
+load sample/taxon table
+```{r}
+results_table <- read.csv("results_filtered_and_condensed_CS.csv")
+```
+
+reformat data table
+```{r}
+results_long <- results_table %>%
+  pivot_longer(cols = c(2:16), names_to = "taxon", values_to = "reads")
+head(results_long)
+```
+
+plot everything
+```{r}
+ggplot(results_long, aes(x=Sample_ID, y=reads, fill=taxon)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "number of sequencing reads",
+    x = "sample ID",
+    title = "squid taxon") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "right",
+    legend.title = element_blank()
+  )
+```
+
+calculate read total and proportions per sample 
+```{r}
+results_long <- results_long %>%
+  group_by(Sample_ID) %>%
+  mutate(total = sum(reads)) %>%
+  mutate(prop = reads/total)
+```
+
+
+remove samples with no reads from plot 
+```{r}
+results_long %>%
+  filter(total != 0) %>%
+  ggplot(aes(x=Sample_ID, y=reads, fill=taxon)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "number of sequencing reads",
+    x = "sample ID",
+    title = "squid taxon") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "right",
+    legend.title = element_blank()
+  )
+```
+
+remove samples with less than 100 reads 
+```{r}
+results_long %>%
+  filter(total > 100) %>%
+  ggplot(aes(x=Sample_ID, y=reads, fill=taxon)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "number of sequencing reads",
+    x = "sample ID",
+    title = "squid taxon") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "right",
+    legend.title = element_blank()
+  )
+```
+
+```{r}
+results_long %>%
+  filter(total > 100) %>%
+  ggplot(aes(x=Sample_ID, y=prop, fill=taxon)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "proportion of sequencing reads",
+    x = "sample ID",
+    title = "squid taxon") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "right",
+    legend.title = element_blank()
+  )
+```
+
+```{r}
+results_long %>%
+  filter(total > 100) %>%
+  filter(str_starts(Sample_ID, "N")) %>%
+  ggplot(aes(x=Sample_ID, y=reads, fill=taxon)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "number of sequencing reads",
+    x = "sample ID",
+    title = "negative samples") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "right",
+    legend.title = element_blank()
+  )
+```
+
+```{r}
+results_long %>%
+  filter(total > 100) %>%
+  filter(!str_starts(Sample_ID, "N")) %>%
+  filter(Sample_ID != "sturgeon") %>%
+  ggplot(aes(x=Sample_ID, y=reads, fill=taxon)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "number of sequencing reads",
+    x = "sample ID",
+    title = "squid taxon") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "right",
+    legend.title = element_blank()
+  )
+```
+```{r}
+results_long %>%
+  filter(total > 100) %>%
+  filter(!str_starts(Sample_ID, "N")) %>%
+  filter(Sample_ID != "sturgeon") %>%
+  ggplot(aes(x=Sample_ID, y=prop, fill=taxon)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "prop of sequencing reads",
+    x = "sample ID",
+    title = "squid taxon") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "right",
+    legend.title = element_blank()
+  )
+```
+
+```{r}
+results_long %>%
+  filter(total > 100) %>%
+  filter(!str_starts(Sample_ID, "N")) %>%
+  filter(Sample_ID != "sturgeon") %>% 
+  filter(reads > 0) %>%
+  group_by(taxon) %>%
+  summarise(n_squid = n(),
+            total_reads = sum(reads)) %>% #  ,
+            #mean_prop = mean(prop)) %>%
+  arrange(desc(total_reads))
+```
+
+
+
+
