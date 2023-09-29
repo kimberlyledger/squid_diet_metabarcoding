@@ -1,0 +1,209 @@
+---
+title: "A look at the squid diet metabarcoding ASVs and samples"
+author: "Kimberly Ledger"
+date: "2023-07-07"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Taking a look at Charlotte's squid diet samples. 
+
+Inputs: This code starts with the ASV table output from DADA2 pipeline in my sequence_filtering.Rmd (eDNA_metabarcoding R project). We also use sample metadata and a preliminary taxonomic id for the ASVs in this code.  
+
+# Load libraries and data 
+
+load libraries 
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+load ASV table and metadata
+```{r}
+asv_table <- read.csv("/genetics/edna/workdir/squids/20230706_squiddiet/trimmed/filtered/outputs/ASVtable.csv") %>%
+  dplyr::rename(Sample_ID = X)
+
+asv_table$Sample_ID <- as.factor(asv_table$Sample_ID)
+
+asv_table <- asv_table %>%
+  filter(Sample_ID != "Undetermined")
+
+#metadata <- read.csv("/genetics/edna/workdir/GOApcod_2021/GOA2021_metadata_20230630.csv")
+
+#illumina output changed "_" to "-"
+#metadata$Sample_ID <- gsub("_", "-", metadata$Sample_ID) 
+```
+
+let's start by taking a closer looks at our dataset 
+```{r}
+## number of ASVs 
+sum(grepl("ASV", colnames(asv_table)))  
+
+## number of samples in ASV table 
+nrow(asv_table)
+```
+
+let's start by visualizing the reads in ALL samples
+```{r}
+#asv_table_with_sample_type %>%
+asv_table %>%
+  #pivot_longer(cols = c(3:1861), names_to = "ASV", values_to = "reads") %>%
+  pivot_longer(cols = c(2:425), names_to = "ASV", values_to = "reads") %>%
+  #filter(sample_type == "positive_control") %>%
+  ggplot(aes(x=Sample_ID, y=reads, fill=ASV)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "number of sequencing reads",
+    x = "sample ID",
+    title = "ASV reads") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "none",
+    legend.title = element_blank()
+  )
+```
+
+
+### positive controls 
+
+top asvs in positive controls
+```{r}
+#asvs_PC <- asv_table_with_sample_type %>%
+asvs_PC <- asv_table %>%
+  pivot_longer(cols = c(2:425), names_to = "ASV", values_to = "reads") %>%
+  filter(Sample_ID == "sturgeon") %>%
+  group_by(ASV) %>%
+  summarise(total = sum(reads)) %>%
+  arrange(desc(total))
+
+head(asvs_PC, 5)
+```
+
+### dissection blanks
+
+let me look into the reads that got into the dissection blanks
+```{r}
+asv_table %>%
+  pivot_longer(cols = c(2:425), names_to = "ASV", values_to = "reads") %>%
+  filter(grepl("^N", Sample_ID)) %>%
+  filter(Sample_ID != "N6") %>%
+  ggplot(aes(x=Sample_ID, y=reads, fill=ASV)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "number of sequencing reads",
+    x = "sample ID",
+    title = "ASV reads in dissection negatives") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "none",
+    legend.title = element_blank()
+  )
+```
+
+```{r}
+asvs_DN <- asv_table %>%
+  pivot_longer(cols = c(2:425), names_to = "ASV", values_to = "reads") %>%
+  filter(grepl("^N", Sample_ID)) %>%
+  filter(Sample_ID != "N6") %>%
+  group_by(ASV) %>%
+  summarise(total = sum(reads)) %>%
+  arrange(desc(total))
+
+head(asvs_DN, 10)
+```
+
+
+### PCR blanks 
+
+let me look into the reads that got into the pcr blanks
+```{r}
+asv_table %>%
+  pivot_longer(cols = c(2:425), names_to = "ASV", values_to = "reads") %>%
+  filter(Sample_ID == "N6") %>%
+  ggplot(aes(x=Sample_ID, y=reads, fill=ASV)) +
+  geom_bar(stat = "identity") + 
+    theme_bw() +
+  labs(
+    y = "number of sequencing reads",
+    x = "sample ID",
+    title = "ASV reads in dissection negatives") + 
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 0.95),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(0.3, "cm"),
+    legend.position = "none",
+    legend.title = element_blank()
+  )
+``` 
+ 
+```{r}
+asvs_PCRN <- asv_table %>%
+  pivot_longer(cols = c(2:425), names_to = "ASV", values_to = "reads") %>%
+  filter(Sample_ID == "N6") %>%
+  group_by(ASV) %>%
+  summarise(total = sum(reads)) %>%
+  arrange(desc(total))
+
+head(asvs_PCRN, 10)
+```
+
+
+## read in taxonomic ids to make an output for Charlotte to work with 
+
+read in taxonomic identification  
+- for now using insect IDs and blastn taxonomy
+```{r}
+taxon_insect <- read.csv("/genetics/edna/workdir/squids/20230706_squiddiet/trimmed/filtered/outputs/asv_full_taxonomy_insect.csv") %>%
+  select(!X) %>%
+  dplyr::rename(ASV = representative)
+
+taxon_blastn <- read.csv("/genetics/edna/workdir/squids/20230706_squiddiet/trimmed/filtered/outputs/asv_taxonomy_blastn.csv") %>%
+  select(!X) %>%
+  dplyr::rename(ASV = qseqid)
+```
+
+```{r}
+taxon <- taxon_insect %>%
+  filter(taxon != "root") %>%
+  filter(taxon != "Eumetazoa") %>%
+  left_join(taxon_blastn, by = "ASV")
+```
+
+get list of ASVs with taxon IDs
+```{r}
+ASVs <- unique(taxon$ASV)
+```
+
+filter ASV table 
+```{r}
+asv_table_filtered <- asv_table %>%
+  pivot_longer(cols = c(2:425), names_to = "ASV", values_to = "reads") %>%
+  filter(ASV %in% ASVs) %>%
+  pivot_wider(names_from = "ASV", values_from = "reads")
+```
+
+output this filtered table
+```{r}
+write.csv(asv_table_filtered, "ASVtable_filtered.csv")
+```
+
+```{r}
+asv_seqs <- read.csv("/genetics/edna/workdir/squids/20230706_squiddiet/trimmed/filtered/outputs/asv_id_table.csv") %>%
+  select(!X) %>%
+  filter(asv_id %in% ASVs)
+```
+
+output the sequences for the ASVs kept after filtering
+```{r}
+write.csv(asv_seqs, "asv_id_table_filtered.csv")
+```
+
